@@ -3,6 +3,7 @@ import shutil
 import sqlite3
 import sys
 import tempfile
+import threading
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -49,6 +50,22 @@ class CoreTests(unittest.TestCase):
         self.assertEqual((new, errors), (3, 0))
         paths = [p["rel_path"] for p in self.cat.pending_files()]
         self.assertEqual(paths, ["2024/a.jpg", "2024/b.jpg", "2025/c.mp4"])
+
+    def test_scan_reports_progress_and_skips_excluded_folders(self):
+        write(os.path.join(self.lib, "skip.tmp", "x.jpg"), b"x")
+        calls = []
+        scanner.scan(self.cat, log=self.log.append, progress=lambda text, pct: calls.append((text, pct)))
+        self.assertTrue(calls)
+        self.assertEqual(calls[-1][1], 100)
+        self.assertNotIn("skip.tmp/x.jpg", [p["rel_path"] for p in self.cat.pending_files()])
+
+    def test_cancelled_scan_keeps_known_files_present(self):
+        self.scan()
+        cancel = threading.Event()
+        cancel.set()
+        scanner.scan(self.cat, log=self.log.append, cancel=cancel)
+        self.assertEqual(len(self.cat.pending_files()), 3)
+        self.assertEqual(self.scan()[0], 0)
 
     def test_rescan_unchanged_finds_nothing_new(self):
         self.scan()

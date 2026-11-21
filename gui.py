@@ -48,6 +48,8 @@ class App:
         self._build_sources(nb)
         self._build_settings(nb)
 
+        self.status_var = tk.StringVar()
+        ttk.Label(root, textvariable=self.status_var, padding=(10, 4, 10, 0)).pack(fill="x")
         bottom = ttk.Frame(root, padding=(10, 6))
         bottom.pack(fill="x")
         self.progress = ttk.Progressbar(bottom, mode="determinate", maximum=100)
@@ -247,6 +249,16 @@ class App:
                 elif kind == "progress":
                     self.progress.stop()
                     self.progress.configure(mode="determinate", value=payload)
+                elif kind == "status":
+                    text, pct = payload
+                    self.status_var.set(text)
+                    if pct is None:
+                        if str(self.progress["mode"]) != "indeterminate":
+                            self.progress.configure(mode="indeterminate")
+                            self.progress.start(15)
+                    else:
+                        self.progress.stop()
+                        self.progress.configure(mode="determinate", value=pct)
                 elif kind == "spin":
                     self.progress.configure(mode="indeterminate")
                     self.progress.start(15)
@@ -259,6 +271,7 @@ class App:
                         self.drive_box.current(0)
                 elif kind in ("done", "error"):
                     self.busy = False
+                    self.status_var.set("")
                     self.progress.stop()
                     self.progress.configure(mode="determinate", value=0 if kind == "error" else 100)
                     if kind == "error":
@@ -300,7 +313,8 @@ class App:
 
         def job(cat, emit):
             emit("spin")
-            new, errors = scanner.scan(cat, log=lambda m: emit("log", m), cancel=self.cancel)
+            new, errors = scanner.scan(cat, log=lambda m: emit("log", m), cancel=self.cancel,
+                                       progress=lambda text, pct: emit("status", (text, pct)))
             emit("log", f"Scan done: {new} new or changed file(s), {errors} unreadable.")
         self.run_job("Scanning", job)
 
