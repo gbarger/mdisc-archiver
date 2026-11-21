@@ -8,9 +8,46 @@ from datetime import datetime
 DEFAULTS = {
     "capacity_bytes": "100103356416",
     "reserve_bytes": "1500000000",
-    "excludes": "Thumbs.db,desktop.ini,.DS_Store,*.tmp,~$*",
     "verify_after_burn": "1",
 }
+
+DEFAULT_IGNORE = """# Files and folders matching these patterns are never backed up.
+# One pattern per line. * matches anything, ? matches one character.
+# Patterns match a file or folder name (not a full path) and ignore upper/lower case.
+# Lines starting with "# " (hash and a space) are comments.
+
+# Windows
+Thumbs.db
+ehthumbs.db
+ehthumbs_vista.db
+desktop.ini
+~$*
+*.tmp
+
+# Mac
+.DS_Store
+._*
+.AppleDouble
+.AppleDB
+.AppleDesktop
+.Spotlight-V100
+.Trashes
+.fseventsd
+.TemporaryItems
+.DocumentRevisions-V100
+.apdisk
+.localized
+
+# NAS (Synology / QNAP) thumbnails and recycle bins
+@eaDir
+#recycle
+#snapshot
+.@__thumb
+
+# Unfinished downloads
+*.crdownload
+*.part
+"""
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS sources(
@@ -90,8 +127,32 @@ class Catalog:
         self.db.execute("INSERT OR REPLACE INTO settings(key, value) VALUES(?, ?)", (key, str(value)))
         self.db.commit()
 
+    def ignore_path(self):
+        return os.path.join(os.path.dirname(os.path.abspath(self.path)), "ignore.txt")
+
+    def ignore_text(self):
+        """Contents of ignore.txt, creating it with common patterns on first use."""
+        path = self.ignore_path()
+        if not os.path.exists(path):
+            text = DEFAULT_IGNORE
+            # Carry over custom patterns from the old comma-separated "excludes" setting.
+            row = self.db.execute("SELECT value FROM settings WHERE key='excludes'").fetchone()
+            if row:
+                known = {line.strip().lower() for line in text.splitlines()}
+                extra = [p.strip() for p in row["value"].split(",") if p.strip() and p.strip().lower() not in known]
+                if extra:
+                    text += "\n# From earlier settings\n" + "\n".join(extra) + "\n"
+            self.save_ignore_text(text)
+        with open(path, encoding="utf-8") as fh:
+            return fh.read()
+
+    def save_ignore_text(self, text):
+        with open(self.ignore_path(), "w", encoding="utf-8") as fh:
+            fh.write(text)
+
     def excludes(self):
-        return [p.strip() for p in self.get("excludes").split(",") if p.strip()]
+        lines = (line.strip() for line in self.ignore_text().splitlines())
+        return [line for line in lines if line and not line.startswith("# ") and line != "#"]
 
     def usable_bytes(self):
         return int(self.get("capacity_bytes")) - int(self.get("reserve_bytes"))
