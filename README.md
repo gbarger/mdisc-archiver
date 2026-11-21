@@ -36,7 +36,7 @@ Any disc can tell you where every file is. The newest disc has the most complete
 - **Moved or renamed files** aren't burned again, because files are matched by content. Search shows both the current path and the path on the disc.
 - **Edited files** are burned again as a new version. The old version stays listed on its original disc.
 - **Failed verification:** the disc is marked `failed` and its files go on the next disc. Throw away or mark the bad disc.
-- **Skipped files** are set on the Settings tab (default: `Thumbs.db`, `desktop.ini`, `.DS_Store`, `*.tmp`, `~$*`).
+- **Ignored files:** Settings tab → **Edit ignore list…** opens `ignore.txt` (next to the catalog), one pattern per line. It comes preloaded with common Windows, Mac and NAS clutter (`Thumbs.db`, `desktop.ini`, `.DS_Store`, `._*`, `@eaDir`, …). Matching ignores upper/lower case. Files that were already scanned but now match the list are dropped from "not yet backed up" on the next full scan.
 
 ## First-time test (recommended)
 IMAPI2 support for 100 GB BDXL media varies by drive, so test before archiving your whole library:

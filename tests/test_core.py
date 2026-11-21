@@ -59,6 +59,24 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(calls[-1][1], 100)
         self.assertNotIn("skip.tmp/x.jpg", [p["rel_path"] for p in self.cat.pending_files()])
 
+    def test_ignore_list_defaults_and_edits(self):
+        write(os.path.join(self.lib, "2024", ".DS_Store"), b"x")
+        write(os.path.join(self.lib, "2024", "._a.jpg"), b"x")
+        write(os.path.join(self.lib, "2024", "THUMBS.DB"), b"x")
+        write(os.path.join(self.lib, "@eaDir", "a.jpg", "SYNOPHOTO_THUMB_M.jpg"), b"x")
+        write(os.path.join(self.lib, "#recycle", "old.jpg"), b"x")
+        self.assertEqual(self.scan()[0], 3)
+        self.assertTrue(os.path.isfile(self.cat.ignore_path()))
+        self.cat.save_ignore_text(self.cat.ignore_text() + "\n*.MP4\n")
+        self.scan()
+        self.assertEqual([p["rel_path"] for p in self.cat.pending_files()], ["2024/a.jpg", "2024/b.jpg"])
+
+    def test_ignore_list_keeps_old_custom_excludes(self):
+        self.cat.set("excludes", "Thumbs.db,*.raw")
+        self.assertFalse(os.path.exists(self.cat.ignore_path()))   # created on first use
+        self.assertIn("*.raw", self.cat.excludes())
+        self.assertEqual(self.cat.excludes().count("Thumbs.db"), 1)
+
     def test_cancelled_scan_keeps_known_files_present(self):
         self.scan()
         cancel = threading.Event()

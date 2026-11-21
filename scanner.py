@@ -30,7 +30,9 @@ def sha256_file(path, cancel=None, on_chunk=None):
 
 
 def _excluded(name, patterns):
-    return any(fnmatch.fnmatch(name, p) for p in patterns)
+    """patterns must already be lowercase: matching ignores case on every OS."""
+    name = name.lower()
+    return any(fnmatch.fnmatchcase(name, p) for p in patterns)
 
 
 def _walk(top, patterns, cancel, on_error):
@@ -74,7 +76,7 @@ def scan(cat, log=print, cancel=None, progress=None):
     progress(text, pct) is called a few times per second; pct is None while the total is unknown.
     """
     progress = progress or (lambda text, pct: None)
-    patterns = cat.excludes()
+    patterns = [p.lower() for p in cat.excludes()]
     scan_id = cat.next_scan_id()
     errors = 0
 

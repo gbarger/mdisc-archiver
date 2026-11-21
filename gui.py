@@ -147,13 +147,15 @@ class App:
         fields = [
             ("capacity_bytes", "Disc capacity (bytes). 100 GB BDXL = 100103356416"),
             ("reserve_bytes", "Space kept free for the index and filesystem (bytes)"),
-            ("excludes", "Skip files/folders matching (comma separated)"),
         ]
         for i, (key, text) in enumerate(fields):
             ttk.Label(f, text=text).grid(row=i, column=0, sticky="w", pady=4)
             v = tk.StringVar(value=self.cat.get(key))
             ttk.Entry(f, textvariable=v, width=50).grid(row=i, column=1, sticky="w", padx=8)
             self.set_vars[key] = v
+        ttk.Label(f, text="Files and folders that are never backed up (.DS_Store, Thumbs.db, ...)").grid(
+            row=2, column=0, sticky="w", pady=4)
+        ttk.Button(f, text="Edit ignore list…", command=self.edit_ignore_list).grid(row=2, column=1, sticky="w", padx=8)
         self.verify_var = tk.BooleanVar(value=self.cat.get("verify_after_burn") == "1")
         ttk.Checkbutton(f, text="Verify every file after burning", variable=self.verify_var).grid(
             row=3, column=0, columnspan=2, sticky="w", pady=4)
@@ -494,6 +496,25 @@ class App:
         self.cat.set("verify_after_burn", "1" if self.verify_var.get() else "0")
         self.log("Settings saved.")
         self.refresh_all()
+
+    def edit_ignore_list(self):
+        win = tk.Toplevel(self.root)
+        win.title("Ignore list")
+        win.geometry("560x600")
+        win.transient(self.root)
+        ttk.Label(win, text=self.cat.ignore_path(), foreground="#666", padding=(10, 8, 10, 4)).pack(anchor="w")
+        text = tk.Text(win, wrap="none", undo=True, font=("Consolas", 10))
+        text.insert("1.0", self.cat.ignore_text())
+        text.pack(fill="both", expand=True, padx=10)
+        row = ttk.Frame(win, padding=10)
+        row.pack(fill="x")
+
+        def save():
+            self.cat.save_ignore_text(text.get("1.0", "end-1c"))
+            self.log("Ignore list saved. It applies to the next scan.")
+            win.destroy()
+        ttk.Button(row, text="Save", command=save).pack(side="right")
+        ttk.Button(row, text="Cancel", command=win.destroy).pack(side="right", padx=6)
 
     def open_catalog_folder(self):
         folder = os.path.dirname(os.path.abspath(self.catalog_path))
